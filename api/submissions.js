@@ -1,0 +1,12 @@
+const {read,write,authorized}=require('./_store');
+const {randomUUID}=require('crypto');
+const allowedA=new Set(['game','win','draw','new-opponent','painting','both-stores']);
+const allowedB=[['first-blood','sector','enemy'],['reinforcements','hold','rivalry'],['strike','tactics','veteran'],['deployment','galactic-veteran','push']];
+module.exports=async(req,res)=>{res.setHeader('Cache-Control','no-store');try{
+if(req.method==='GET'){if(!authorized(req))return res.status(401).json({error:'Organizer authorization required'});return res.json({submissions:await read()})}
+if(req.method==='POST'){const b=req.body||{};if(typeof b.player!=='string'||!b.player.trim()||b.player.length>80||!Number.isInteger(b.stage)||b.stage<1||b.stage>4||!Number.isInteger(b.week)||b.week<1||b.week>8||Math.ceil(b.week/2)!==b.stage||!['Pineville','Belmont'].includes(b.location)||!Array.isArray(b.achievements)||!Array.isArray(b.bounties)||b.achievements.some(x=>!allowedA.has(x))||b.bounties.some(x=>!allowedB[b.stage-1].includes(x))||typeof b.notes!=='string'||b.notes.length>500)return res.status(400).json({error:'Invalid submission; stage and week must match'});
+if(b.achievements.includes('win')&&b.achievements.includes('draw'))return res.status(400).json({error:'Cannot claim both win and draw'});
+const claims=await read();const id=randomUUID();claims.push({id,player:b.player.trim(),stage:b.stage,week:b.week,location:b.location,matchUrl:String(b.matchUrl||'').slice(0,300),notes:b.notes,achievements:[...new Set(b.achievements)],bounties:[...new Set(b.bounties)],status:'pending',createdAt:new Date().toISOString()});await write(claims);return res.status(201).json({id,status:'pending'})}
+if(req.method==='PATCH'){if(!authorized(req))return res.status(401).json({error:'Organizer authorization required'});const {id,status}=req.body||{};if(!['approved','rejected'].includes(status))return res.status(400).json({error:'Invalid status'});const claims=await read();const c=claims.find(x=>x.id===id);if(!c)return res.status(404).json({error:'Claim not found'});c.status=status;c.reviewedAt=new Date().toISOString();await write(claims);return res.json({ok:true})}
+res.setHeader('Allow','GET, POST, PATCH');return res.status(405).json({error:'Method not allowed'})
+}catch(e){return res.status(503).json({error:'Submission storage not yet configured or temporarily unavailable'})}};
