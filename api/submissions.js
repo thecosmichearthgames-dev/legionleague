@@ -1,6 +1,6 @@
 const {read,write,authorized}=require('./_store');
 const {randomUUID}=require('crypto');
-const allowedA=new Set(['game','win','draw','new-opponent','painting','both-stores']);
+const allowedA=new Set(['game','win','draw','new-opponent','both-stores']);
 const allowedB=[['first-blood','sector','enemy'],['reinforcements','hold','rivalry'],['strike','tactics','veteran'],['deployment','galactic-veteran','push']];
 module.exports=async(req,res)=>{res.setHeader('Cache-Control','no-store');try{
 if(req.method==='GET'){if(!authorized(req))return res.status(401).json({error:'Organizer authorization required'});return res.json({submissions:await read()})}
